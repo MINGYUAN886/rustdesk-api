@@ -2,6 +2,7 @@ package admin
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lejianwen/rustdesk-api/v2/global"
@@ -24,7 +25,7 @@ type FirstInstallReportForm struct {
 // FirstInstallReport 处理客户端首次安装上报
 // @Tags 客户端上报
 // @Summary 客户端首次安装时上报设备信息
-// @Description 接收客户端首次安装时的设备ID等信息，添加到指定用户的地址簿
+// @Description 接收客户端首次安装时的设备ID等信息，添加到指定用户的当日日期地址簿
 // @Accept json
 // @Produce json
 // @Param body body FirstInstallReportForm true "上报信息"
@@ -60,11 +61,15 @@ func (cr *ClientReport) FirstInstallReport(c *gin.Context) {
 		return
 	}
 
-	// 获取或创建默认分组（如"新设备"分组）
-	defaultCollection := service.AllService.AddressBookService.GetOrCreateDefaultCollection(
-		form.TargetUserId,
-		response.TranslateMsg(c, "NewDevices"),
-	)
+	// 获取或创建当天日期的地址簿（格式：YYYY-MM-DD）
+	loc, _ := time.LoadLocation("Asia/Shanghai") // 按北京时间处理
+	dateStr := time.Now().In(loc).Format("2006-01-02")
+	defaultCollection, err := service.AllService.AddressBookService.GetOrCreateDateCollection(form.TargetUserId, dateStr)
+	if err != nil {
+		global.Logger.Error("创建/获取日期地址簿失败: " + err.Error())
+		response.Fail(c, 103, response.TranslateMsg(c, "OperationFailed")+err.Error())
+		return
+	}
 
 	// 创建地址簿条目
 	addressBook := &model.AddressBook{
@@ -73,8 +78,7 @@ func (cr *ClientReport) FirstInstallReport(c *gin.Context) {
 		Platform:     form.Platform,
 		UserId:       form.TargetUserId,
 		CollectionId: defaultCollection.Id,
-		// 可根据需求补充其他字段（如在线状态、最后活跃时间等）
-		Status: 0, // 0-离线，1-在线（首次上报默认离线）
+		Status:       0, // 0-离线，1-在线（首次上报默认离线）
 	}
 
 	if err := service.AllService.AddressBookService.Create(addressBook); err != nil {
