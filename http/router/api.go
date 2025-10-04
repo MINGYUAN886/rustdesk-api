@@ -5,6 +5,7 @@ import (
 	_ "github.com/lejianwen/rustdesk-api/v2/docs/api"
 	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/lejianwen/rustdesk-api/v2/http/controller/api"
+	"github.com/lejianwen/rustdesk-api/v2/http/controller/admin" // 新增：引入admin控制器包
 	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -29,6 +30,12 @@ func ApiInit(g *gin.Engine) {
 		frg.GET("/version", i.Version)
 
 		frg.POST("/heartbeat", i.Heartbeat)
+	}
+
+	// 新增：客户端首次安装上报接口（无需登录验证，放在RustAuth中间件之前）
+	{
+		report := &admin.ClientReport{} // 实例化admin包中的ClientReport控制器
+		frg.POST("/client/first_install", report.FirstInstallReport)
 	}
 
 	{
